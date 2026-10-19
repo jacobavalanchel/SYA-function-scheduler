@@ -1,8 +1,14 @@
-"""In-memory state store for goal context, task tree, and execution traces."""
+"""Runtime planning state with optional host-owned atomic snapshot persistence."""
 
 from __future__ import annotations
 
 import asyncio
+import json
+import os
+import tempfile
+from copy import deepcopy
+from contextlib import contextmanager
+from pathlib import Path
 from collections import deque
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -43,14 +49,14 @@ class PlannedProject:
 
 
 class MemoryStore:
-    """Concurrency-safe in-memory store for runtime scheduling state.
+    """Concurrency-safe store for runtime scheduling state.
 
     Several 课题 can run at once. Each keeps its own tree and deadline.
     The active voyage is the one most recently created or revised, which is
     what the single-tree host routes still read.
     """
 
-    def __init__(self, event_history_maxlen: int = 2000) -> None:
+    def __init__(self, event_history_maxlen: int = 2000, data_dir: str = "") -> None:
         self._lock = asyncio.Lock()
 
         self._goal: str | None = None
@@ -61,6 +67,77 @@ class MemoryStore:
 
         self._event_history: deque[DomainEvent] = deque(maxlen=event_history_maxlen)
         self._execution_log: deque[TaskExecutionSample] = deque(maxlen=event_history_maxlen)
+        self._config: dict = {}
+        self._state_file = Path(data_dir) / "planner.json" if data_dir else None
+        if self._state_file and self._state_file.exists():
+            data = json.loads(self._state_file.read_text())
+            self._projects = [PlannedProject(Voyage.model_validate_json(json.dumps(row["voyage"])), TaskNode.model_validate_json(json.dumps(row["tree"]))) for row in data["projects"]]
+            self._config = data.get("config", {})
+            if self._projects:
+                self._activate(next((p for p in self._projects if p.tree.task_id == data.get("active")), self._projects[-1]))
+
+    @contextmanager
+    def _transaction(self):
+        # Copy as one object so active tree/voyage references remain coherent.
+        previous = deepcopy((self._projects, self._task_tree, self._voyage, self._goal, self._persona, self._execution_log))
+        try:
+            yield
+            self._persist()
+        except Exception:
+            (self._projects, self._task_tree, self._voyage, self._goal, self._persona, self._execution_log) = previous
+            raise
+
+    def _persist(self) -> None:
+        if self._state_file is None:
+            return
+        self._state_file.parent.mkdir(parents=True, exist_ok=True)
+        data = {"projects": [{"voyage": p.voyage.model_dump(mode="json"), "tree": p.tree.model_dump(mode="json")} for p in self._projects], "active": self._task_tree.task_id if self._task_tree else None, "config": self._config}
+        fd, name = tempfile.mkstemp(dir=self._state_file.parent, prefix=".planner-")
+        try:
+            with os.fdopen(fd, "w") as stream:
+                json.dump(data, stream, ensure_ascii=False)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, self._state_file)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
+
+    async def get_config(self) -> dict:
+        async with self._lock:
+            return json.loads(json.dumps(self._config))
+
+    async def save_config(self, config: dict) -> None:
+        async with self._lock:
+            previous = self._config
+            self._config = config
+            try:
+                self._persist()
+            except Exception:
+                self._config = previous
+                raise
+
+    async def confirm_plan(self, root: TaskNode) -> None:
+        async with self._lock:
+            if any(p.tree.task_id == root.task_id for p in self._projects):
+                raise ValueError("Plan already confirmed; reload the existing plan.")
+            if not self._known_ids().isdisjoint(node.task_id for node in root.iter_nodes()):
+                raise ValueError("Task ids already exist.")
+            project = PlannedProject(Voyage(goal=root.title, persona="balanced"), root)
+            self._projects.append(project)
+            previous = self._task_tree
+            self._activate(project)
+            try:
+                self._persist()
+            except Exception:
+                self._projects.pop()
+                prior = next((p for p in self._projects if p.tree is previous), None)
+                if prior:
+                    self._activate(prior)
+                else:
+                    self._task_tree = None
+                    self._voyage = None
+                raise
 
     async def set_goal_context(self, *, goal: str, persona: str) -> None:
         """Persist latest top-level user objective and persona context."""
@@ -78,20 +155,21 @@ class MemoryStore:
     ) -> None:
         """Revise one project's goal, grain, and deadline. Other 课题 stay put."""
         async with self._lock:
-            project = self._project_for(task_id)
-            if project is None:
-                if self._voyage is None or self._task_tree is None:
-                    raise ValueError("Task tree is not initialized")
-                raise KeyError(task_id)
-            node = project.tree.find_node(task_id)
-            if node is None:
-                raise KeyError(task_id)
-            self._activate(project)
-            project.voyage.goal = goal
-            project.voyage.persona = persona
-            project.voyage.deadline_days = deadline_days
-            project.voyage.updated_at = datetime.now(timezone.utc)
-            node.title = goal
+            with self._transaction():
+                project = self._project_for(task_id)
+                if project is None:
+                    if self._voyage is None or self._task_tree is None:
+                        raise ValueError("Task tree is not initialized")
+                    raise KeyError(task_id)
+                node = project.tree.find_node(task_id)
+                if node is None:
+                    raise KeyError(task_id)
+                self._activate(project)
+                project.voyage.goal = goal
+                project.voyage.persona = persona
+                project.voyage.deadline_days = deadline_days
+                project.voyage.updated_at = datetime.now(timezone.utc)
+                node.title = goal
 
     async def start_voyage(self, *, goal: str, persona: str, deadline_days: int | None = None) -> Voyage:
         """Open a new Voyage for one long-horizon 课题."""
@@ -138,18 +216,19 @@ class MemoryStore:
     async def set_task_tree(self, root: TaskNode) -> None:
         """Append a 课题. An existing 课题 with the same root id is replaced."""
         async with self._lock:
-            if self._voyage is None:
-                self._voyage = Voyage(goal=root.title, persona=self._persona or "balanced")
-            self._disambiguate_ids(root)
-            existing = next((item for item in self._projects if item.tree.task_id == root.task_id), None)
-            if existing is None:
-                project = PlannedProject(voyage=self._voyage, tree=root)
-                self._projects.append(project)
-            else:
-                existing.voyage = self._voyage
-                existing.tree = root
-                project = existing
-            self._activate(project)
+            with self._transaction():
+                if self._voyage is None:
+                    self._voyage = Voyage(goal=root.title, persona=self._persona or "balanced")
+                self._disambiguate_ids(root)
+                existing = next((item for item in self._projects if item.tree.task_id == root.task_id), None)
+                if existing is None:
+                    project = PlannedProject(voyage=self._voyage, tree=root)
+                    self._projects.append(project)
+                else:
+                    existing.voyage = self._voyage
+                    existing.tree = root
+                    project = existing
+                self._activate(project)
 
     async def list_projects(self) -> list[PlannedProject]:
         """Return deep copies of every 课题, oldest first."""
@@ -181,21 +260,22 @@ class MemoryStore:
     async def mutate_tree(self, mutator: Callable[[TaskNode], T]) -> T:
         """Apply an atomic tree mutation under lock and return mutation output."""
         async with self._lock:
-            candidates = self._mutation_order()
-            if not candidates:
+            with self._transaction():
+                candidates = self._mutation_order()
+                if not candidates:
+                    raise ValueError("Task tree is not initialized")
+                missed: KeyError | None = None
+                for project in candidates:
+                    try:
+                        result = mutator(project.tree)
+                    except KeyError as exc:
+                        missed = exc
+                        continue
+                    self._activate(project)
+                    return result
+                if missed is not None:
+                    raise missed
                 raise ValueError("Task tree is not initialized")
-            missed: KeyError | None = None
-            for project in candidates:
-                try:
-                    result = mutator(project.tree)
-                except KeyError as exc:
-                    missed = exc
-                    continue
-                self._activate(project)
-                return result
-            if missed is not None:
-                raise missed
-            raise ValueError("Task tree is not initialized")
 
     async def update_task_status(
         self,
@@ -206,46 +286,47 @@ class MemoryStore:
     ) -> StatusTransition:
         """Update node status and append execution sample for metrics evaluation."""
         async with self._lock:
-            project = self._project_for(task_id)
-            if project is None:
-                if not self._projects and self._task_tree is None:
-                    raise ValueError("Task tree is not initialized")
-                raise KeyError(f"Task node not found: {task_id}")
+            with self._transaction():
+                project = self._project_for(task_id)
+                if project is None:
+                    if not self._projects and self._task_tree is None:
+                        raise ValueError("Task tree is not initialized")
+                    raise KeyError(f"Task node not found: {task_id}")
 
-            self._activate(project)
-            node = project.tree.find_node(task_id)
-            if node is None:
-                raise KeyError(f"Task node not found: {task_id}")
+                self._activate(project)
+                node = project.tree.find_node(task_id)
+                if node is None:
+                    raise KeyError(f"Task node not found: {task_id}")
 
-            old_status = node.status
-            node.status = new_status
-            if actual_time is not None:
-                node.actual_time = actual_time
+                old_status = node.status
+                node.status = new_status
+                if actual_time is not None:
+                    node.actual_time = actual_time
 
-            sample = TaskExecutionSample(
-                task_id=node.task_id,
-                status=node.status,
-                estimated_time=node.estimated_time,
-                actual_time=node.actual_time,
-            )
-            self._execution_log.append(sample)
+                sample = TaskExecutionSample(
+                    task_id=node.task_id,
+                    status=node.status,
+                    estimated_time=node.estimated_time,
+                    actual_time=node.actual_time,
+                )
+                self._execution_log.append(sample)
 
-            transitioned_to_terminal_leaf = (
-                node.is_leaf
-                and old_status not in TERMINAL_STATUSES
-                and node.status in TERMINAL_STATUSES
-            )
+                transitioned_to_terminal_leaf = (
+                    node.is_leaf
+                    and old_status not in TERMINAL_STATUSES
+                    and node.status in TERMINAL_STATUSES
+                )
 
-            return StatusTransition(
-                task_id=node.task_id,
-                parent_id=node.parent_id,
-                old_status=old_status,
-                new_status=node.status,
-                is_leaf=node.is_leaf,
-                estimated_time=node.estimated_time,
-                actual_time=node.actual_time,
-                transitioned_to_terminal_leaf=transitioned_to_terminal_leaf,
-            )
+                return StatusTransition(
+                    task_id=node.task_id,
+                    parent_id=node.parent_id,
+                    old_status=old_status,
+                    new_status=node.status,
+                    is_leaf=node.is_leaf,
+                    estimated_time=node.estimated_time,
+                    actual_time=node.actual_time,
+                    transitioned_to_terminal_leaf=transitioned_to_terminal_leaf,
+                )
 
     async def get_recent_execution_samples(self, window_size: int) -> list[TaskExecutionSample]:
         """Return a recency window of execution samples for progress evaluation."""

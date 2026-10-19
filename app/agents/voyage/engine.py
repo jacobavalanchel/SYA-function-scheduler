@@ -62,7 +62,7 @@ def build_container(settings: Settings) -> AppContainer:
     """Construct and wire the local Voyage runtime."""
 
     event_bus = AsyncEventBus()
-    memory_store = MemoryStore(event_history_maxlen=settings.event_history_maxlen)
+    memory_store = MemoryStore(event_history_maxlen=settings.event_history_maxlen, data_dir=settings.scheduler_data_dir)
     llm_gateway = OpenAICompatiblePlannerGateway(settings)
 
     navigator = Navigator(

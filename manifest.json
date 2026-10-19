@@ -24,7 +24,9 @@
     "hierarchical-task-tree",
     "rolling-wave-planning",
     "adaptive-replanning",
-    "voyage-runtime"
+    "voyage-runtime",
+    "plan-preview-confirmation",
+    "persistent-plans-and-preferences"
   ],
   "events": [
     "task.created",
@@ -33,6 +35,7 @@
     "timeline.changed"
   ],
   "permissions": [
-    "llm-api"
+    "llm-api",
+    "storage"
   ]
 }

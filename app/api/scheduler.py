@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+import json
+import re
+from uuid import uuid4
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
@@ -20,6 +23,7 @@ from app.agents.voyage.engine import AppContainer
 from app.api.deps import get_container
 from app.api.schemas import InitTaskRequest, UpdateTaskStatusRequest
 from app.models.task_tree import TaskNode, TaskStatus
+from app.models.persona import resolve_persona
 from app.services.planning import publish_init_task, publish_status_update
 from app.services.timeline import (
     minutes,
@@ -48,9 +52,11 @@ FUNCTION_MANIFEST: dict[str, Any] = {
         "rolling-wave-planning",
         "adaptive-replanning",
         "voyage-runtime",
+        "plan-preview-confirmation",
+        "persistent-plans-and-preferences",
     ],
     "events": ["task.created", "task.updated", "task.deleted", "timeline.changed"],
-    "permissions": ["llm-api"],
+    "permissions": ["llm-api", "storage"],
 }
 
 router = APIRouter()
@@ -94,6 +100,58 @@ async def manifest() -> dict[str, Any]:
     return FUNCTION_MANIFEST
 
 
+def validate_plan(tree: TaskNode) -> None:
+    seen: set[str] = set()
+    def walk(node: TaskNode, depth: int) -> None:
+        if node.task_id in seen or len(seen) >= 300:
+            raise ValueError("Plan requires unique ids and at most 300 nodes.")
+        seen.add(node.task_id)
+        if not node.title.strip() or depth > 3 or (not node.children and depth != 3):
+            raise ValueError("Use four levels: goal, stage, task, checklist.")
+        if node.status != TaskStatus.PENDING:
+            raise ValueError("New plans must contain pending tasks.")
+        for child in node.children:
+            walk(child, depth + 1)
+    walk(tree, 0)
+
+
+class ConfirmPlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tree: TaskNode
+
+
+@router.post("/api/scheduler/plans/preview", response_model=FunctionResponse)
+async def preview_plan(body: DecomposeRequest, container: AppContainer = Depends(get_container)) -> FunctionResponse:
+    try:
+        raw = await container.llm_gateway.generate_task_tree(
+            goal=body.input, persona=resolve_persona("balanced"), strategy=None,
+            context={"require_live_model": True, "hierarchy_depth": 4},
+            response_schema=container.navigator._initial_tree_schema(),
+        )
+        tree = TaskNode.from_llm_json(raw)
+        # Model ids are not durable identities; create fresh ids before review.
+        def identify(node: TaskNode, parent: str | None = None) -> None:
+            node.task_id = uuid4().hex
+            node.parent_id = parent
+            for child in node.children:
+                identify(child, node.task_id)
+        identify(tree)
+        validate_plan(tree)
+        return function_ok({"tree": tree.model_dump(mode="json")})
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/api/scheduler/plans/confirm", response_model=FunctionResponse)
+async def confirm_plan(body: ConfirmPlanRequest, container: AppContainer = Depends(get_container)) -> FunctionResponse:
+    try:
+        validate_plan(body.tree)
+        await container.memory_store.confirm_plan(body.tree)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return function_ok({"tree": body.tree.model_dump(mode="json")})
+
+
 @router.post("/api/scheduler/decompose", response_model=FunctionResponse)
 async def scheduler_decompose(
     body: DecomposeRequest,
@@ -121,14 +179,12 @@ async def scheduler_list_tasks(
     status: str | None = None,
     container: AppContainer = Depends(get_container),
 ) -> FunctionResponse:
-    tree = await container.memory_store.get_task_tree_snapshot()
-    tasks = [node_to_task(node) for node in (tree.iter_nodes() if tree else [])]
-    if tree is not None:
-        tasks = [task for task in tasks if task["id"] != tree.task_id]
+    projects = await container.memory_store.list_projects()
+    tasks = [node_to_task(node) for project in projects for node in project.tree.iter_nodes()]
     if status:
         wanted = {
-            "in_progress": "active",
-            "active": "active",
+            "in_progress": "in_progress",
+            "active": "in_progress",
             "completed": "completed",
             "pending": "pending",
         }.get(status, status)
@@ -143,8 +199,8 @@ async def scheduler_get_task(
     container: AppContainer = Depends(get_container),
 ) -> FunctionResponse:
     task_id = resolve_task_id(taskId, dict(request.query_params))
-    tree = await container.memory_store.get_task_tree_snapshot()
-    node = tree.find_node(task_id) if tree is not None else None
+    raw = await container.memory_store.get_subtree_snapshot(task_id)
+    node = TaskNode.model_validate_json(json.dumps(raw)) if raw else None
     if node is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return function_ok(node_to_task(node))
@@ -158,6 +214,16 @@ async def scheduler_update_task(
 ) -> FunctionResponse:
     task_id = resolve_task_id(taskId, body)
     status = parse_task_status(body.get("status"))
+    if "status" in body and status is None:
+        raise HTTPException(status_code=422, detail="Invalid task status")
+    for key in ("deadline", "scheduledDate"):
+        if body.get(key) is not None:
+            try:
+                date.fromisoformat(body[key])
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(status_code=422, detail=f"Invalid {key}") from exc
+    if "estimatedMinutes" in body and (not isinstance(body["estimatedMinutes"], (int, float)) or not 1 <= body["estimatedMinutes"] <= 1440):
+        raise HTTPException(status_code=422, detail="Duration must be 1–1440 minutes")
     if status is not None:
         actual_minutes = body.get("actualMinutes")
         await publish_status_update(
@@ -169,6 +235,12 @@ async def scheduler_update_task(
             container=container,
             source="scheduler_api",
         )
+        await container.event_bus.join()
+        current = await container.memory_store.get_subtree_snapshot(task_id)
+        if current is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        if current["status"] != status.value:
+            raise HTTPException(status_code=503, detail="Task status was not saved; retry after checking storage")
 
     def mutator(root: TaskNode) -> dict[str, Any]:
         node = root.find_node(task_id)
@@ -176,6 +248,12 @@ async def scheduler_update_task(
             raise KeyError(task_id)
         if body.get("title"):
             node.title = str(body["title"])
+        if "deadline" in body:
+            node.deadline = body["deadline"]
+        if "scheduledDate" in body:
+            node.scheduled_date = body["scheduledDate"]
+        if "estimatedMinutes" in body:
+            node.estimated_time = float(body["estimatedMinutes"]) / 60
         if "description" in body:
             node.description = str(body.get("description") or "")
         return node_to_task(node)
@@ -237,6 +315,8 @@ async def scheduler_reorder_tasks(
     order = {task_id: index for index, task_id in enumerate(body.task_ids)}
 
     def mutator(root: TaskNode) -> None:
+        if not any(root.find_node(task_id) for task_id in body.task_ids):
+            raise KeyError(body.task_ids[0])
         for node in root.iter_nodes():
             node.children.sort(key=lambda child: order.get(child.task_id, len(order)))
 
@@ -261,7 +341,9 @@ async def scheduler_stats(container: AppContainer = Depends(get_container)) -> F
 
 @router.get("/api/scheduler/config", response_model=FunctionResponse)
 async def scheduler_get_config(container: AppContainer = Depends(get_container)) -> FunctionResponse:
-    return function_ok(scheduler_config(container.settings))
+    config = scheduler_config(container.settings)
+    config.update(await container.memory_store.get_config())
+    return function_ok(config)
 
 
 @router.put("/api/scheduler/config", response_model=FunctionResponse)
@@ -270,11 +352,20 @@ async def scheduler_update_config(
     container: AppContainer = Depends(get_container),
 ) -> FunctionResponse:
     config = scheduler_config(container.settings)
+    config.update(await container.memory_store.get_config())
+    for key in ("workStart", "workEnd"):
+        if key in body and (not isinstance(body[key], str) or not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", body[key])):
+            raise HTTPException(status_code=422, detail="Invalid work hours")
+    if body.get("dailyGranularity", "standard") not in ("fine", "standard", "coarse"):
+        raise HTTPException(status_code=422, detail="Invalid daily granularity")
     for key, value in body.items():
         if isinstance(value, dict) and isinstance(config.get(key), dict):
             config[key].update(value)
         else:
             config[key] = value
+    if config.get("workStart", "09:00") >= config.get("workEnd", "18:00"):
+        raise HTTPException(status_code=422, detail="Work end must be after start")
+    await container.memory_store.save_config(config)
     return function_ok(config)
 
 
@@ -297,6 +388,8 @@ async def function_actions() -> FunctionResponse:
             "actions": [
                 {"action": "health", "method": "GET", "path": "/health"},
                 {"action": "manifest", "method": "GET", "path": "/manifest"},
+                {"action": "plans.preview", "method": "POST", "path": "/api/scheduler/plans/preview"},
+                {"action": "plans.confirm", "method": "POST", "path": "/api/scheduler/plans/confirm"},
                 {"action": "decompose", "method": "POST", "path": "/api/scheduler/decompose"},
                 {"action": "tasks.list", "method": "GET", "path": "/api/scheduler/tasks"},
                 {"action": "tasks.get", "method": "GET", "path": "/api/scheduler/tasks/{taskId}"},

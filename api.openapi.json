@@ -26,7 +26,9 @@
             "description": "Runtime is healthy",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -42,7 +44,9 @@
             "description": "Function manifest",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object"
+                }
               }
             }
           }
@@ -58,7 +62,9 @@
             "description": "Project list. Does not change the active tree.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ProjectList" }
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectList"
+                }
               }
             }
           }
@@ -73,7 +79,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/InitTaskRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/InitTaskRequest"
+              }
             }
           }
         },
@@ -82,7 +90,9 @@
             "description": "Planning event accepted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/EventAck" }
+                "schema": {
+                  "$ref": "#/components/schemas/EventAck"
+                }
               }
             }
           }
@@ -98,14 +108,18 @@
             "name": "task_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/InitTaskRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/InitTaskRequest"
+              }
             }
           }
         },
@@ -114,11 +128,15 @@
             "description": "Revise event accepted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/EventAck" }
+                "schema": {
+                  "$ref": "#/components/schemas/EventAck"
+                }
               }
             }
           },
-          "404": { "description": "Project is not initialized" }
+          "404": {
+            "description": "Project is not initialized"
+          }
         }
       }
     },
@@ -131,14 +149,18 @@
             "name": "task_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateTaskStatusRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaskStatusRequest"
+              }
             }
           }
         },
@@ -147,7 +169,9 @@
             "description": "Status event accepted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/EventAck" }
+                "schema": {
+                  "$ref": "#/components/schemas/EventAck"
+                }
               }
             }
           }
@@ -162,7 +186,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TranslateRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/TranslateRequest"
+              }
             }
           }
         },
@@ -171,7 +197,9 @@
             "description": "Translated titles and descriptions",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TranslateResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TranslateResponse"
+                }
               }
             }
           }
@@ -187,11 +215,15 @@
             "description": "Active task tree",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object"
+                }
               }
             }
           },
-          "404": { "description": "Task tree is not initialized" }
+          "404": {
+            "description": "Task tree is not initialized"
+          }
         }
       }
     },
@@ -204,11 +236,15 @@
             "description": "Active voyage",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object"
+                }
               }
             }
           },
-          "404": { "description": "Voyage is not initialized" }
+          "404": {
+            "description": "Voyage is not initialized"
+          }
         }
       }
     },
@@ -220,7 +256,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DecomposeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/DecomposeRequest"
+              }
             }
           }
         },
@@ -229,7 +267,9 @@
             "description": "Decomposition result",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -247,7 +287,12 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["pending", "in_progress", "completed", "cancelled"]
+              "enum": [
+                "pending",
+                "in_progress",
+                "completed",
+                "cancelled"
+              ]
             }
           }
         ],
@@ -256,7 +301,9 @@
             "description": "Task list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -272,7 +319,9 @@
             "name": "taskId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -280,7 +329,9 @@
             "description": "Task detail",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -294,14 +345,18 @@
             "name": "taskId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "type": "object" }
+              "schema": {
+                "type": "object"
+              }
             }
           }
         },
@@ -310,11 +365,14 @@
             "description": "Updated task",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
-        }
+        },
+        "description": "Save title, description, status, estimatedMinutes (1–1440), deadline and scheduledDate (YYYY-MM-DD or null). All confirmed projects are addressable."
       },
       "delete": {
         "operationId": "tasks.delete",
@@ -324,7 +382,9 @@
             "name": "taskId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -332,7 +392,9 @@
             "description": "Delete result",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -348,7 +410,9 @@
             "description": "Timeline data",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -363,7 +427,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ReorderTasksRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/ReorderTasksRequest"
+              }
             }
           }
         },
@@ -372,7 +438,9 @@
             "description": "Reorder result",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -388,7 +456,9 @@
             "description": "Daily stats",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -404,7 +474,9 @@
             "description": "Scheduler configuration",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
@@ -417,7 +489,9 @@
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "type": "object" }
+              "schema": {
+                "type": "object"
+              }
             }
           }
         },
@@ -426,11 +500,14 @@
             "description": "Updated scheduler configuration",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
           }
-        }
+        },
+        "description": "Persist configuration. workStart/workEnd are HH:mm with start before end. dailyGranularity is fine, standard or coarse."
       }
     },
     "/api/scheduler/events": {
@@ -442,7 +519,9 @@
             "description": "SSE stream",
             "content": {
               "text/event-stream": {
-                "schema": { "type": "string" }
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -458,9 +537,104 @@
             "description": "Action list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FunctionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/scheduler/plans/preview": {
+      "post": {
+        "operationId": "plans.preview",
+        "summary": "Preview a four-level AI plan without saving. Missing/failed model returns error; no sample fallback.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "input"
+                ],
+                "properties": {
+                  "input": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Function response with tree",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invalid or already confirmed plan"
+          },
+          "422": {
+            "description": "Invalid input or unavailable model"
+          }
+        }
+      }
+    },
+    "/api/scheduler/plans/confirm": {
+      "post": {
+        "operationId": "plans.confirm",
+        "summary": "Explicitly confirm a pending four-level tree. Duplicate ids reject. Persist under host-owned scheduler storage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tree"
+                ],
+                "properties": {
+                  "tree": {
+                    "$ref": "#/components/schemas/PlanNode"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Function response with tree",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunctionResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invalid or already confirmed plan"
+          },
+          "422": {
+            "description": "Invalid input or unavailable model"
           }
         }
       }
@@ -470,15 +644,23 @@
     "schemas": {
       "FunctionResponse": {
         "type": "object",
-        "required": ["ok"],
+        "required": [
+          "ok"
+        ],
         "properties": {
-          "ok": { "type": "boolean" },
+          "ok": {
+            "type": "boolean"
+          },
           "data": {},
           "error": {
             "type": "object",
             "properties": {
-              "code": { "type": "string" },
-              "message": { "type": "string" },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
               "details": {}
             }
           }
@@ -486,104 +668,240 @@
       },
       "DecomposeRequest": {
         "type": "object",
-        "required": ["input"],
+        "required": [
+          "input"
+        ],
         "additionalProperties": false,
         "properties": {
-          "input": { "type": "string", "minLength": 1 },
+          "input": {
+            "type": "string",
+            "minLength": 1
+          },
           "attachments": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
       "InitTaskRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["goal"],
+        "required": [
+          "goal"
+        ],
         "properties": {
-          "goal": { "type": "string", "minLength": 1 },
-          "persona": { "type": "string", "minLength": 1, "default": "balanced" },
-          "deadline_days": { "type": "integer", "minimum": 1 }
+          "goal": {
+            "type": "string",
+            "minLength": 1
+          },
+          "persona": {
+            "type": "string",
+            "minLength": 1,
+            "default": "balanced"
+          },
+          "deadline_days": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "UpdateTaskStatusRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status"],
+        "required": [
+          "status"
+        ],
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["PENDING", "IN_PROGRESS", "DONE", "BLOCKED", "SKIPPED"]
+            "enum": [
+              "PENDING",
+              "IN_PROGRESS",
+              "DONE",
+              "BLOCKED",
+              "SKIPPED"
+            ]
           },
-          "actual_time": { "type": "number", "minimum": 0 }
+          "actual_time": {
+            "type": "number",
+            "minimum": 0
+          }
         }
       },
       "TranslateNode": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["task_id", "title"],
+        "required": [
+          "task_id",
+          "title"
+        ],
         "properties": {
-          "task_id": { "type": "string", "minLength": 1 },
-          "title": { "type": "string", "minLength": 1 },
-          "description": { "type": "string" }
+          "task_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          }
         }
       },
       "TranslateRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["target", "nodes"],
+        "required": [
+          "target",
+          "nodes"
+        ],
         "properties": {
-          "target": { "type": "string", "enum": ["zh", "en"] },
+          "target": {
+            "type": "string",
+            "enum": [
+              "zh",
+              "en"
+            ]
+          },
           "nodes": {
             "type": "array",
             "minItems": 1,
             "maxItems": 200,
-            "items": { "$ref": "#/components/schemas/TranslateNode" }
+            "items": {
+              "$ref": "#/components/schemas/TranslateNode"
+            }
           }
         }
       },
       "TranslateResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["nodes"],
+        "required": [
+          "nodes"
+        ],
         "properties": {
           "nodes": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/TranslateNode" }
+            "items": {
+              "$ref": "#/components/schemas/TranslateNode"
+            }
           }
         }
       },
       "EventAck": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["accepted", "event_id"],
+        "required": [
+          "accepted",
+          "event_id"
+        ],
         "properties": {
-          "accepted": { "type": "boolean" },
-          "event_id": { "type": "string" }
+          "accepted": {
+            "type": "boolean"
+          },
+          "event_id": {
+            "type": "string"
+          }
         }
       },
       "ProjectList": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["projects"],
+        "required": [
+          "projects"
+        ],
         "properties": {
           "projects": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": {
+              "type": "object"
+            }
           }
         }
       },
       "ReorderTasksRequest": {
         "type": "object",
-        "required": ["taskIds"],
+        "required": [
+          "taskIds"
+        ],
         "additionalProperties": false,
         "properties": {
           "taskIds": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "minItems": 1
           }
         }
+      },
+      "PlanNode": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "title",
+          "estimated_time",
+          "children"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "estimated_time": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "status": {
+            "type": "string"
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_leaf": {
+            "type": "boolean"
+          },
+          "actual_time": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "deadline": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "scheduled_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanNode"
+            }
+          }
+        },
+        "additionalProperties": false
       }
     }
   }

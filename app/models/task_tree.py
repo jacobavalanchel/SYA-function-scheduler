@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Iterator
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 
 
 class TaskStatus(str, Enum):
@@ -42,7 +42,23 @@ class TaskNode(BaseModel):
     estimated_time: float = Field(default=1.0, gt=0)
     actual_time: float | None = Field(default=None, ge=0)
 
+    deadline: str | None = None
+    scheduled_date: str | None = None
+
     children: list["TaskNode"] = Field(default_factory=list)
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def parse_status(cls, value):
+        return TaskStatus(value) if isinstance(value, str) else value
+
+    @field_validator("deadline", "scheduled_date")
+    @classmethod
+    def validate_date(cls, value):
+        if value is not None:
+            from datetime import date
+            date.fromisoformat(value)
+        return value
 
     @model_validator(mode="after")
     def sync_structure_metadata(self) -> "TaskNode":

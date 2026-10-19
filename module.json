@@ -12,7 +12,10 @@
     "function/scheduler/app/services/task_manager.py",
     "app/src/features/scheduler/api.ts",
     "app/src/pages/DashboardPage.tsx",
-    "app/src/types/electron.d.ts"
+    "app/src/types/electron.d.ts",
+    "app/src/pages/SchedulePage.tsx",
+    "function/scheduler/app/api/scheduler.py",
+    "function/scheduler/app/core/memory_store.py"
   ],
   "description": "AI task decomposition, scheduler-compatible task APIs, and rolling-wave planning for SYA."
 }

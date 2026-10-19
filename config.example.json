@@ -6,12 +6,15 @@
     "baseUrl": "https://open.bigmodel.cn/api/paas/v4"
   },
   "storage": {
-    "dbPath": "memory://sya-task-tree"
+    "dbPath": "host-owned SYA_SCHEDULER_DATA_DIR/planner.json"
   },
   "decompose": {
     "maxSubtasks": 8,
     "defaultEstimateMinutes": 30,
     "includeBreaks": false,
     "breakDurationMinutes": 5
-  }
+  },
+  "workStart": "09:00",
+  "workEnd": "18:00",
+  "dailyGranularity": "standard"
 }

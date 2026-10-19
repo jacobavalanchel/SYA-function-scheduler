@@ -24,6 +24,8 @@ class Settings(BaseSettings):
         validate_default=True,
     )
 
+    scheduler_data_dir: str = ""
+
     app_name: str = "FocusFlow"
     debug: bool = False
 

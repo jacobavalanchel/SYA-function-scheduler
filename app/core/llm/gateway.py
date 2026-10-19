@@ -53,6 +53,8 @@ class OpenAICompatiblePlannerGateway(LLMPlannerGateway):
     ) -> dict[str, Any]:
         """Generate decomposition tree via OpenAI API format or local fallback."""
 
+        if not self._api_key and context.get("require_live_model"):
+            raise ValueError("Configure a model to preview AI plans, or create a manual plan.")
         if not self._api_key:
             logger.warning("LLM API key is empty; using local mock plan")
             return self._mock_plan(goal=goal, persona=persona, strategy=strategy, context=context)
@@ -95,13 +97,17 @@ class OpenAICompatiblePlannerGateway(LLMPlannerGateway):
                 raise ValueError("LLM returned empty content")
             return self._load_json_content(content)
         except httpx.HTTPStatusError as exc:
+            if context.get("require_live_model"):
+                raise ValueError("The model request failed; your goal has been kept.") from exc
             logger.exception(
                 "LLM HTTP %s: %s",
                 exc.response.status_code,
                 exc.response.text[:500],
             )
             return self._mock_plan(goal=goal, persona=persona, strategy=strategy, context=context)
-        except Exception:
+        except Exception as exc:
+            if context.get("require_live_model"):
+                raise ValueError("The model response could not be used; edit or retry your plan.") from exc
             logger.exception("LLM request failed, fallback plan will be used")
             return self._mock_plan(goal=goal, persona=persona, strategy=strategy, context=context)
 

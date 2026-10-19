@@ -1,5 +1,16 @@
 # FocusFlow
 
+## SYA design journeys (2026-10-19)
+
+The default SYA React workspace uses `plans.preview` then explicit `plans.confirm`. Preview calls the configured model and returns an editable four-level tree without changing the plan store; absent/failed model requests fail visibly. Manual drafts use the same confirm contract. The older `/api/v1` and `/decompose` workflows remain available in the advanced planner and retain their legacy no-key sample behavior.
+
+Electron supplies `SYA_SCHEDULER_DATA_DIR` under its user-data scheduler directory. Confirmed projects, task dates/content/order/status, and configuration are atomically persisted to `planner.json`; mutations roll back in memory on write failure. A source server started without this environment variable uses an ephemeral store. Only one runtime may own a given data directory. Work hours (`workStart`, `workEnd`) and daily granularity (`fine`, `standard`, `coarse`) control renderer calendar blocks. Parent React views schedule unassigned tasks from today; these are provisional placements until an explicit date is saved. Focus completion never marks a scheduler task complete.
+
+Implementation choice: reuse the existing Pydantic task tree and FastAPI nested bodies (MIT), Python `json`/atomic `os.replace` (PSF), and the existing async lock. SQLite (public domain) and a new ORM were considered; one bounded project snapshot under a single runtime owner does not require another persistence layer. No dependency was added. References: [FastAPI nested models](https://fastapi.tiangolo.com/tutorial/body-nested-models/), [Python atomic replace](https://docs.python.org/3.11/library/os.html#os.replace).
+
+Source tests: `uv run --with-requirements requirements.txt python -m unittest discover -s tests -t . -p 'test*.py' -v`. Tests use temporary storage and a fixed model result; they do not validate live model quality or a packaged binary.
+
+
 FocusFlow 把一个很长的目标拆成阶段，以及你现在就能做的下一步。
 
 ## Agent SDLC 开发框架
