@@ -57,7 +57,7 @@ class TaskNode(BaseModel):
     def validate_date(cls, value):
         if value is not None:
             from datetime import date
-            date.fromisoformat(value)
+            return date.fromisoformat(value).isoformat()
         return value
 
     @model_validator(mode="after")

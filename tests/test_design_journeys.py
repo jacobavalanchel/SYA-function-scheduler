@@ -85,3 +85,28 @@ class JourneyTests(unittest.TestCase):
             with TestClient(main.app) as client:
                 self.assertEqual(client.get('/api/scheduler/tasks/leaf').json()['data']['title'],'Read evidence')
                 self.assertEqual(client.get('/api/scheduler/tasks/leaf').json()['data']['status'],'pending')
+
+    def test_confirmation_leaf_duration_bounds_and_canonical_dates(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(main,'get_settings',return_value=Settings(scheduler_data_dir=folder,openai_api_key='')):
+            with TestClient(main.app) as client:
+                for minutes in (0.5, 1441):
+                    tree=plan();tree['children'][0]['children'][0]['children'][0]['estimated_time']=minutes/60
+                    self.assertEqual(client.post('/api/scheduler/plans/confirm',json={'tree':tree}).status_code,409)
+                from app.models.task_tree import TaskNode
+                from app.api.scheduler import validate_plan
+                tree=TaskNode.model_validate(plan());tree.children[0].children[0].children[0].estimated_time=float('inf')
+                with self.assertRaisesRegex(ValueError,'finite'):
+                    validate_plan(tree)
+                tree=plan();tree['estimated_time']=100.0
+                leaf=tree['children'][0]['children'][0]['children'][0]
+                leaf.update(estimated_time=24.0,deadline='20261022',scheduled_date='2026-W43-3')
+                response=client.post('/api/scheduler/plans/confirm',json={'tree':tree})
+                self.assertEqual(response.status_code,200,response.text)
+                row=client.get('/api/scheduler/tasks/leaf').json()['data']
+                self.assertEqual(row['deadline'],'2026-10-22');self.assertEqual(row['scheduledDate'],'2026-10-21')
+                response=client.put('/api/scheduler/tasks/leaf',json={'deadline':'2026-W44-1','scheduledDate':'20261023'})
+                self.assertEqual(response.status_code,200,response.text)
+                row=client.get('/api/scheduler/tasks/leaf').json()['data']
+                self.assertEqual(row['deadline'],'2026-10-26');self.assertEqual(row['scheduledDate'],'2026-10-23')
+                # Minimum duration is accepted independently of aggregate parent totals.
+                self.assertEqual(client.put('/api/scheduler/tasks/leaf',json={'estimatedMinutes':1}).status_code,200)

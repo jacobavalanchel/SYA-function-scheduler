@@ -860,7 +860,8 @@
           },
           "estimated_time": {
             "type": "number",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "description": "Hours. Confirmation requires finite checklist leaves of 1/60–24 hours (1–1440 minutes); parent aggregates are not capped."
           },
           "status": {
             "type": "string"
@@ -885,14 +886,16 @@
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date",
+            "description": "Accepted ISO dates are returned normalized as YYYY-MM-DD."
           },
           "scheduled_date": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date",
+            "description": "Accepted ISO dates are returned normalized as YYYY-MM-DD."
           },
           "children": {
             "type": "array",

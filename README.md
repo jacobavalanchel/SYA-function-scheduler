@@ -212,3 +212,5 @@ desktop/                 # Electron 壳
 tests/ docs/
 ```
 
+
+Confirmation validates each checklist leaf at a finite 1–1440 minutes; aggregate parent estimates may exceed 1440 minutes. Accepted ISO calendar, compact and week dates are normalized to `YYYY-MM-DD` on the plan model and task updates. Existing longer estimates remain readable; the calendar preserves their full duration across days.

@@ -101,6 +101,7 @@ async def manifest() -> dict[str, Any]:
 
 
 def validate_plan(tree: TaskNode) -> None:
+    from math import isfinite
     seen: set[str] = set()
     def walk(node: TaskNode, depth: int) -> None:
         if node.task_id in seen or len(seen) >= 300:
@@ -110,6 +111,8 @@ def validate_plan(tree: TaskNode) -> None:
             raise ValueError("Use four levels: goal, stage, task, checklist.")
         if node.status != TaskStatus.PENDING:
             raise ValueError("New plans must contain pending tasks.")
+        if not node.children and (not isfinite(node.estimated_time) or not 1 <= node.estimated_time * 60 <= 1440):
+            raise ValueError("Checklist duration must be finite and 1–1440 minutes.")
         for child in node.children:
             walk(child, depth + 1)
     walk(tree, 0)
@@ -219,7 +222,7 @@ async def scheduler_update_task(
     for key in ("deadline", "scheduledDate"):
         if body.get(key) is not None:
             try:
-                date.fromisoformat(body[key])
+                body[key] = date.fromisoformat(body[key]).isoformat()
             except (TypeError, ValueError) as exc:
                 raise HTTPException(status_code=422, detail=f"Invalid {key}") from exc
     if "estimatedMinutes" in body and (not isinstance(body["estimatedMinutes"], (int, float)) or not 1 <= body["estimatedMinutes"] <= 1440):
