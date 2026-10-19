@@ -47,7 +47,7 @@ The accepted timeline spec covers:
 | `CAP-8` | Suggest a new routine from actual work outside the period; the user decides |
 | `CAP-9` | Suggest today's grain from completion friction or flow; the user decides |
 
-`SCH-004` through `SCH-009`, multi-topic persistence, real calendar editing, and parent Dashboard IPC are deferred. A status label is a testable claim, not a planning shortcut.
+`SCH-004` through `SCH-009` remain outside the original FocusFlow baseline. The parent-approved 2026-10-19 design-journeys spec adds source-level multi-project persistence, saved dates and preferences, plus explicit preview/confirm for the parent React workspace. Packaged delivery remains unverified. A status label is a testable claim, not a planning shortcut.
 
 ## Architecture Invariants
 
@@ -56,7 +56,7 @@ The accepted timeline spec covers:
 - Renderer code does not read `.env`, Node, native APIs, or local files.
 - Service layering stays `app/api/` to `app/services/` to `app/models/` and `app/agents/voyage/`, with `app/core/` owning config, the event bus, the memory store, and the only LLM boundary.
 - Voyage names the loop: Navigator decomposes, Helm records human execution, Sextant checks and replans. The human is the executor.
-- The desktop holds a list of in-memory projects. Host routes still read the active tree. A health check does not mean the list survives restart.
+- The store persists projects and preferences when `SYA_SCHEDULER_DATA_DIR` is provided by the host; standalone runs without it remain ephemeral. Task list/get span all projects; legacy tree/timeline routes still use the active project. Restart tests establish source persistence, not packaged delivery.
 - This repository is the implementation behind SYA-UI's `function/scheduler` gitlink. A commit here is not shipped in the parent app until that pointer is updated and reviewed.
 
 ## Interface Contract
